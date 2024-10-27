@@ -31,6 +31,16 @@
 
     function renderMarkdown(chunk) {
         currentBuffer += chunk
+        console.log('nouveau chunk', chunk);
+        console.log('buffer', currentBuffer);
+
+        if (currentBuffer.includes('\n')){
+            currentElement = null;
+            currentState = 'text';
+            headingLevel = 0;
+            currentBuffer = currentBuffer.split('\n').pop() || '';
+        }
+
         if (currentBuffer.startsWith('#')){
             let level = 0;
             while (currentBuffer[level] === '#' && level < 3 ){
