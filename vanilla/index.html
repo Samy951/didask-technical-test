@@ -48,8 +48,20 @@
                     }
                 } else if (line.trim()) {
                     const textElement = document.createElement('div');
-                    textElement.textContent = line.trim();
-                    document.getElementById('markdown-output').appendChild(textElement);
+                    const spaceAtEnd = line.match(/\s*$/)[0].length;
+
+                    if (spaceAtEnd >= 2){
+                        textElement.textContent = line.trimEnd();
+                        document.getElementById('markdown-output').appendChild(textElement);
+                    } else{
+                        const lastElement = document.getElementById('markdown-output').lastElementChild;
+                        if (lastElement && lastElement.tagName === 'DIV'){
+                            lastElement.textContent += ' ' + line.trim();
+                        } else {
+                            textElement.textContent = line.trim();
+                            document.getElementById('markdown-output').appendChild(textElement);
+                        }
+                    }
                 }
             });
 
