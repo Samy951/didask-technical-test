@@ -1,18 +1,32 @@
-# Markdown Stream Parser
+# Didask Technical Test - Markdown Stream Parser
 
-## Description
-Technical test implementation for Didask: A streaming markdown parser that processes text chunks and renders them in real-time.
+Ce repository contient deux implémentations du parseur Markdown streaming.
 
-## Features
-- Real-time markdown parsing
-- Supports:
-    - Text lines (with space-based line breaks)
-    - Headers (h1, h2, h3)
-    - Inline code blocks
-    - Multiline code blocks
-- Optimistic rendering
+## Contexte
+Test technique pour Didask : Création d'un parseur Markdown en streaming qui traite le texte par petits morceaux (chunks) et affiche le rendu en temps réel.
 
-## Technical Stack
+### Fonctionnalités demandées
+- Parsing de texte en streaming (chunk par chunk)
+- Gestion de :
+  - Lignes de texte (avec gestion des espaces de fin)
+  - Titres (h1, h2, h3)
+  - Code inline
+  - Blocs de code multi-lignes
+- Rendu optimiste (affichage progressif)
+
+## /vanilla
+Version demandée dans le test technique : une implémentation simple en JavaScript dans un fichier HTML unique.
+- Parsing en temps réel
+- Rendu DOM direct
+- Code auto-contenu
+
+## /typescript
+Version bonus montrant une implémentation plus avancée avec :
 - TypeScript
-- HTML/DOM Manipulation
-- Streaming data processing
+- Architecture modulaire
+- Tests unitaires
+- CI/CD
+- Bonnes pratiques de développement
+
+## Utilisation
+[À compléter une fois les implémentations terminées]
