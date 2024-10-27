@@ -27,13 +27,45 @@
     let currentBuffer = '';
     let currentState = 'text';
     let currentElement = null;
+    let headingLevel = 0;
 
     function renderMarkdown(chunk) {
         currentBuffer += chunk
-        console.log(currentBuffer)
-
-
+        if (currentBuffer.startsWith('#')){
+            let level = 0;
+            while (currentBuffer[level] === '#' && level < 3 ){
+                level++;
+            }
+            if (level > 0 && level <= 3){
+                currentState = 'heading'
+                headingLevel = level
+                console.log('State changed to heading, level:', headingLevel);
+                updateDisplay();
+            }
+        }
     }
+
+
+    function updateDisplay(){
+        console.log('UpdateDisplay - Current state:', currentState);
+        console.log('UpdateDisplay - Current buffer:', currentBuffer);
+
+        const output = document.getElementById('markdown-output');
+
+    if (currentState === 'heading'){
+        if (!currentElement){
+            currentElement = document.createElement(`h${headingLevel}`);
+            output.appendChild(currentElement);
+            console.log('Created new heading element:', `h${headingLevel}`);
+        }
+
+        const titleContent = currentBuffer.slice(headingLevel).trim();
+        currentElement.textContent = titleContent;
+
+        console.log(`Heading level ${headingLevel}`, titleContent);
+    }
+    }
+
 
     /* Do not modify the code below */
 
@@ -62,7 +94,7 @@ const barfoo = 24
             rawMarkdown.textContent += chunk
             renderMarkdown(chunk)
             i += chunkSize
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            await new Promise((resolve) => setTimeout(resolve, 100))
         }
     }
 </script>
