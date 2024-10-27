@@ -25,55 +25,36 @@
 <script>
 
     let currentBuffer = '';
-    let currentState = 'text';
-    let currentElement = null;
-    let headingLevel = 0;
 
     function renderMarkdown(chunk) {
-        currentBuffer += chunk
+        currentBuffer += chunk;
         console.log('nouveau chunk', chunk);
-        console.log('buffer', currentBuffer);
 
-        if (currentBuffer.includes('\n')){
-            currentElement = null;
-            currentState = 'text';
-            headingLevel = 0;
-            currentBuffer = currentBuffer.split('\n').pop() || '';
+        if (currentBuffer.includes('\n')) {
+            let lines = currentBuffer.split('\n');
+            let lastLine = lines.pop() || '';
+
+            lines.forEach(line => {
+                if (line.startsWith('#')) {
+                    let level = 0;
+                    while (line[level] === '#' && level < 3) {
+                        level++;
+                    }
+                    if (level > 0 && level <= 3) {
+                        const titleContent = line.slice(level).trim();
+                        const titleElement = document.createElement(`h${level}`);
+                        titleElement.textContent = titleContent
+                        document.getElementById('markdown-output').appendChild(titleElement);
+                    }
+                } else if (line.trim()) {
+                    const textElement = document.createElement('div');
+                    textElement.textContent = line.trim();
+                    document.getElementById('markdown-output').appendChild(textElement);
+                }
+            });
+
+            currentBuffer = lastLine;
         }
-
-        if (currentBuffer.startsWith('#')){
-            let level = 0;
-            while (currentBuffer[level] === '#' && level < 3 ){
-                level++;
-            }
-            if (level > 0 && level <= 3){
-                currentState = 'heading'
-                headingLevel = level
-                console.log('State changed to heading, level:', headingLevel);
-                updateDisplay();
-            }
-        }
-    }
-
-
-    function updateDisplay(){
-        console.log('UpdateDisplay - Current state:', currentState);
-        console.log('UpdateDisplay - Current buffer:', currentBuffer);
-
-        const output = document.getElementById('markdown-output');
-
-    if (currentState === 'heading'){
-        if (!currentElement){
-            currentElement = document.createElement(`h${headingLevel}`);
-            output.appendChild(currentElement);
-            console.log('Created new heading element:', `h${headingLevel}`);
-        }
-
-        const titleContent = currentBuffer.slice(headingLevel).trim();
-        currentElement.textContent = titleContent;
-
-        console.log(`Heading level ${headingLevel}`, titleContent);
-    }
     }
 
 
@@ -98,7 +79,7 @@ const barfoo = 24
     async function start() {
         const rawMarkdown = document.getElementById('markdown')
 
-        for (let i = 0; i < markdownString.length; ) {
+        for (let i = 0; i < markdownString.length;) {
             const chunkSize = Math.floor(Math.random() * 5) + 1
             const chunk = markdownString.slice(i, i + chunkSize)
             rawMarkdown.textContent += chunk
