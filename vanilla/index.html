@@ -1,93 +1,120 @@
 <!doctype html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hello World</title>
-</head>
-<body>
-<button onclick="start()">Start</button>
+  </head>
+  <body>
+    <button onclick="start()">Start</button>
 
-<br/>
-<br/>
+    <br />
+    <br />
 
-<div>Raw Markdown:</div>
-<div>
-    <pre id="markdown"></pre>
-</div>
+    <div>Raw Markdown:</div>
+    <div>
+      <pre id="markdown"></pre>
+    </div>
 
-<br/>
-<br/>
+    <br />
+    <br />
 
-<div>Rendered Markdown:</div>
-<div id="markdown-output"></div>
+    <div>Rendered Markdown:</div>
+    <div id="markdown-output"></div>
 
-<script>
+    <script>
+      let currentBuffer = '';
+      let isInCodeBlock = false;
+      let currentCodeBlock = null;
 
-    let currentBuffer = '';
-
-    function renderMarkdown(chunk) {
+      function renderMarkdown(chunk) {
         currentBuffer += chunk;
-        console.log('nouveau chunk', chunk);
+        console.log('nouveau chunk:', chunk);
 
         if (currentBuffer.includes('\n')) {
-            let lines = currentBuffer.split('\n');
-            let lastLine = lines.pop() || '';
+          let lines = currentBuffer.split('\n');
+          let lastLine = lines.pop() || '';
 
-            lines.forEach(line => {
-                if (line.startsWith('#')) {
-                    let level = 0;
-                    while (line[level] === '#' && level < 3) {
-                        level++;
-                    }
-                    if (level > 0 && level <= 3) {
-                        const titleContent = line.slice(level).trim();
-                        const titleElement = document.createElement(`h${level}`);
-                        titleElement.textContent = titleContent;
-                        document.getElementById('markdown-output').appendChild(titleElement);
-                    }
-                } else if (line.trim()) {
-                    const textElement = document.createElement('div');
-                    const spaceAtEnd = line.match(/\s*$/)[0].length;
+          lines.forEach(line => {
+            if (line.trim().startsWith('```')) {
+              if (!isInCodeBlock) {
+                // Début du bloc de code
+                isInCodeBlock = true;
+                currentCodeBlock = document.createElement('pre');
+                document.getElementById('markdown-output').appendChild(currentCodeBlock);
+              } else {
+                isInCodeBlock = false;
+                currentCodeBlock = null;
+              }
+              return;
+            }
 
-                    if (line.includes('`')) {
-                        const parts = line.split('`');
-                        textElement.appendChild(document.createTextNode(parts[0]));
+            if (isInCodeBlock && currentCodeBlock) {
+              currentCodeBlock.textContent += line + '\n';
+              return;
+            }
 
-                        if (parts[1]) {
-                            const codeElement = document.createElement('pre');
-                            codeElement.textContent = parts[1];
-                            textElement.appendChild(codeElement);
-                        }
-                        if (parts[2]) {
-                            textElement.appendChild(document.createTextNode(parts[2]));
-                        }
-                    } else {
-                        if (spaceAtEnd >= 2) {
-                            textElement.textContent = line.trimEnd();
-                        } else {
-                            const lastElement = document.getElementById('markdown-output').lastElementChild;
-                            if (lastElement && lastElement.tagName === 'DIV') {
-                                lastElement.textContent += ' ' + line.trim();
-                                return;
-                            } else {
-                                textElement.textContent = line.trim();
-                            }
-                        }
-                    }
+            if (line.startsWith('#')) {
+              let level = 0;
+              while (line[level] === '#' && level < 3) {
+                level++;
+              }
+              if (level > 0 && level <= 3) {
+                const titleContent = line.slice(level).trim();
+                const titleElement = document.createElement(`h${level}`);
+                titleElement.textContent = titleContent;
+                document.getElementById('markdown-output').appendChild(titleElement);
+              }
+            }
+            else if (line.trim()) {
+              const spaceAtEnd = line.match(/\s*$/)[0].length;
+              const textElement = document.createElement('div');
 
-                    document.getElementById('markdown-output').appendChild(textElement);
+              if (line.includes('`') && !line.includes('```')) {
+                const parts = line.split('`');
+                textElement.textContent = '';
+
+                if (parts[0]) {
+                  textElement.appendChild(document.createTextNode(parts[0]));
                 }
-            });
 
-            currentBuffer = lastLine;
+                if (parts[1]) {
+                  const codeElement = document.createElement('pre');
+                  codeElement.style.display = 'inline';
+                  codeElement.textContent = parts[1];
+                  textElement.appendChild(codeElement);
+                }
+
+                if (parts[2]) {
+                  textElement.appendChild(document.createTextNode(parts[2]));
+                }
+
+                document.getElementById('markdown-output').appendChild(textElement);
+              }
+              else if (!line.includes('```')) {
+                if (spaceAtEnd >= 2) {
+                  textElement.textContent = line.trimEnd();
+                  document.getElementById('markdown-output').appendChild(textElement);
+                } else {
+                  const lastElement = document.getElementById('markdown-output').lastElementChild;
+                  if (lastElement && lastElement.tagName === 'DIV') {
+                    lastElement.textContent += ' ' + line.trim();
+                  } else {
+                    textElement.textContent = line.trim();
+                    document.getElementById('markdown-output').appendChild(textElement);
+                  }
+                }
+              }
+            }
+          });
+
+          currentBuffer = lastLine;
         }
-    }
+      }
 
+      /* Do not modify the code below */
 
-    /* Do not modify the code below */
-
-    const markdownString = `# Hello World
+      const markdownString = `# Hello World
 
 Let's start with simple
 things.
@@ -101,20 +128,20 @@ const foobar = 42
 
 const barfoo = 24
 \`\`\`
-`
+`;
 
-    async function start() {
-        const rawMarkdown = document.getElementById('markdown')
+      async function start() {
+        const rawMarkdown = document.getElementById("markdown");
 
-        for (let i = 0; i < markdownString.length;) {
-            const chunkSize = Math.floor(Math.random() * 5) + 1
-            const chunk = markdownString.slice(i, i + chunkSize)
-            rawMarkdown.textContent += chunk
-            renderMarkdown(chunk)
-            i += chunkSize
-            await new Promise((resolve) => setTimeout(resolve, 100))
+        for (let i = 0; i < markdownString.length; ) {
+          const chunkSize = Math.floor(Math.random() * 5) + 1;
+          const chunk = markdownString.slice(i, i + chunkSize);
+          rawMarkdown.textContent += chunk;
+          renderMarkdown(chunk);
+          i += chunkSize;
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
-    }
-</script>
-</body>
+      }
+    </script>
+  </body>
 </html>
