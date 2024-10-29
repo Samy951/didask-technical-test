@@ -1,120 +1,245 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hello World</title>
-  </head>
-  <body>
-    <button onclick="start()">Start</button>
+<head>
+  <meta charset="UTF-8" />
+  <title>Markdown Streaming Parser</title>
+  <style>
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+    }
+    pre.inline {
+      display: inline;
+      padding: 0;
+      background-color: transparent;
+    }
+  </style>
+</head>
+<body>
+<button onclick="start()">Start</button>
 
-    <br />
-    <br />
+<div>Raw Markdown:</div>
+<div>
+  <pre id="markdown"></pre>
+</div>
 
-    <div>Raw Markdown:</div>
-    <div>
-      <pre id="markdown"></pre>
-    </div>
+<div>Rendered Markdown:</div>
+<div id="markdown-output"></div>
 
-    <br />
-    <br />
+<script>
+  let lines = [];
+  let buffer = '';
 
-    <div>Rendered Markdown:</div>
-    <div id="markdown-output"></div>
+  class LineState {
+    constructor() {
+      this.type = 'unknown'; // 'unknown', 'heading', 'paragraph', 'codeBlock', 'inlineCode'
+      this.headingLevel = 0;
+      this.content = '';
+      this.element = null;
+      this.isAtLineStart = true;
+      this.potentialHeading = false;
+      this.potentialCodeBlock = false;
+      this.codeBlockDelimiter = '';
+      this.isInCodeBlock = false;
+      this.codeBlockLanguage = '';
+      this.collectingLanguageSpecifier = false;
+      this.codeBlockEndDelimiter = '';
+    }
+  }
 
-    <script>
-      let currentBuffer = '';
-      let isInCodeBlock = false;
-      let currentCodeBlock = null;
+  function renderMarkdown(chunk) {
+    buffer += chunk;
 
-      function renderMarkdown(chunk) {
-        currentBuffer += chunk;
-        console.log('nouveau chunk:', chunk);
+    let i = 0;
+    while (i < buffer.length) {
+      let char = buffer[i];
 
-        if (currentBuffer.includes('\n')) {
-          let lines = currentBuffer.split('\n');
-          let lastLine = lines.pop() || '';
+      if (lines.length === 0 || lines[lines.length - 1].isLineComplete) {
+        lines.push(new LineState());
+      }
 
-          lines.forEach(line => {
-            if (line.trim().startsWith('```')) {
-              if (!isInCodeBlock) {
-                // Début du bloc de code
-                isInCodeBlock = true;
-                currentCodeBlock = document.createElement('pre');
-                document.getElementById('markdown-output').appendChild(currentCodeBlock);
+      let lineState = lines[lines.length - 1];
+
+      if (char === '\n') {
+        if (lineState.collectingLanguageSpecifier) {
+          lineState.collectingLanguageSpecifier = false;
+          if (lineState.codeBlockLanguage) {
+            lineState.element.setAttribute('data-language', lineState.codeBlockLanguage);
+          }
+        } else if (lineState.isInCodeBlock) {
+          lineState.content += '\n';
+          lineState.element.textContent = lineState.content;
+        } else {
+          lineState.isLineComplete = true;
+          lineState.isAtLineStart = true;
+          processLine(lineState);
+        }
+        i++;
+        continue;
+      }
+
+      if (lineState.isInCodeBlock) {
+        if (lineState.collectingLanguageSpecifier) {
+          if (char !== ' ') {
+            lineState.codeBlockLanguage += char;
+          }
+        } else {
+          if (char === '`') {
+            lineState.codeBlockEndDelimiter += char;
+            if (lineState.codeBlockEndDelimiter === '```') {
+              lineState.content = lineState.content.slice(0, - (lineState.codeBlockEndDelimiter.length - 1));
+              lineState.element.textContent = lineState.content;
+              lineState.isInCodeBlock = false;
+              lineState.content = '';
+              lineState.codeBlockEndDelimiter = '';
+              lineState.isLineComplete = true;
+              lineState.isAtLineStart = true;
+              processLine(lineState);
+            }
+          } else {
+            if (lineState.codeBlockEndDelimiter.length > 0) {
+              lineState.content += lineState.codeBlockEndDelimiter;
+              lineState.codeBlockEndDelimiter = '';
+            }
+            lineState.content += char;
+            lineState.element.textContent = lineState.content;
+          }
+        }
+        i++;
+        continue;
+      }
+
+      if (lineState.isAtLineStart) {
+        if (char === '#') {
+          lineState.potentialHeading = true;
+          lineState.headingLevel++;
+          if (!lineState.element) {
+            lineState.element = document.createElement('h' + lineState.headingLevel);
+            document.getElementById('markdown-output').appendChild(lineState.element);
+          } else if (lineState.element.tagName !== 'H' + lineState.headingLevel) {
+            let newElement = document.createElement('h' + lineState.headingLevel);
+            lineState.element.replaceWith(newElement);
+            lineState.element = newElement;
+          }
+        } else if (char === '`') {
+          lineState.potentialCodeBlock = true;
+          lineState.codeBlockDelimiter += char;
+          if (lineState.codeBlockDelimiter === '```') {
+            lineState.type = 'codeBlock';
+            lineState.isInCodeBlock = true;
+            lineState.collectingLanguageSpecifier = true;
+            lineState.codeBlockLanguage = '';
+            lineState.element = document.createElement('pre');
+            document.getElementById('markdown-output').appendChild(lineState.element);
+            lineState.codeBlockDelimiter = '';
+          }
+        } else if (char === ' ') {
+          lineState.isAtLineStart = false;
+        } else {
+          lineState.isAtLineStart = false;
+          if (lineState.potentialHeading) {
+            lineState.type = 'heading';
+            if (lineState.element.tagName !== 'H' + lineState.headingLevel) {
+              let newElement = document.createElement('h' + lineState.headingLevel);
+              lineState.element.replaceWith(newElement);
+              lineState.element = newElement;
+            }
+          } else if (lineState.potentialCodeBlock) {
+            lineState.type = 'paragraph';
+            lineState.content += lineState.codeBlockDelimiter + char;
+            lineState.codeBlockDelimiter = '';
+            if (!lineState.element) {
+              lineState.element = document.createElement('div');
+              document.getElementById('markdown-output').appendChild(lineState.element);
+            }
+            lineState.element.textContent = lineState.content;
+          } else {
+            lineState.type = 'paragraph';
+            lineState.content += char;
+            if (!lineState.element) {
+              lineState.element = document.createElement('div');
+              document.getElementById('markdown-output').appendChild(lineState.element);
+            }
+            lineState.element.textContent = lineState.content;
+          }
+        }
+      } else {
+        if (lineState.type === 'unknown') {
+          if (lineState.potentialHeading) {
+            lineState.type = 'heading';
+          } else if (lineState.potentialCodeBlock) {
+            lineState.type = 'codeBlock';
+          } else {
+            lineState.type = 'paragraph';
+            if (!lineState.element) {
+              lineState.element = document.createElement('div');
+              document.getElementById('markdown-output').appendChild(lineState.element);
+            }
+          }
+        }
+
+        if (lineState.type === 'codeBlock') {
+        } else if (char === '`' && lineState.type !== 'codeBlock') {
+          // Détection du code inline
+          if (lineState.isInInlineCode) {
+            lineState.isInInlineCode = false;
+            lineState.content += char;
+            lineState.element.innerHTML = renderInlineCode(lineState.content);
+            lineState.content = '';
+          } else {
+            lineState.isInInlineCode = true;
+            lineState.content += char;
+          }
+        } else {
+          lineState.content += char;
+          if (lineState.element) {
+            if (lineState.type === 'heading' || lineState.type === 'paragraph') {
+              if (lineState.isInInlineCode) {
+                lineState.element.innerHTML = renderInlineCode(lineState.content);
               } else {
-                isInCodeBlock = false;
-                currentCodeBlock = null;
-              }
-              return;
-            }
-
-            if (isInCodeBlock && currentCodeBlock) {
-              currentCodeBlock.textContent += line + '\n';
-              return;
-            }
-
-            if (line.startsWith('#')) {
-              let level = 0;
-              while (line[level] === '#' && level < 3) {
-                level++;
-              }
-              if (level > 0 && level <= 3) {
-                const titleContent = line.slice(level).trim();
-                const titleElement = document.createElement(`h${level}`);
-                titleElement.textContent = titleContent;
-                document.getElementById('markdown-output').appendChild(titleElement);
+                lineState.element.textContent = lineState.content;
               }
             }
-            else if (line.trim()) {
-              const spaceAtEnd = line.match(/\s*$/)[0].length;
-              const textElement = document.createElement('div');
-
-              if (line.includes('`') && !line.includes('```')) {
-                const parts = line.split('`');
-                textElement.textContent = '';
-
-                if (parts[0]) {
-                  textElement.appendChild(document.createTextNode(parts[0]));
-                }
-
-                if (parts[1]) {
-                  const codeElement = document.createElement('pre');
-                  codeElement.style.display = 'inline';
-                  codeElement.textContent = parts[1];
-                  textElement.appendChild(codeElement);
-                }
-
-                if (parts[2]) {
-                  textElement.appendChild(document.createTextNode(parts[2]));
-                }
-
-                document.getElementById('markdown-output').appendChild(textElement);
-              }
-              else if (!line.includes('```')) {
-                if (spaceAtEnd >= 2) {
-                  textElement.textContent = line.trimEnd();
-                  document.getElementById('markdown-output').appendChild(textElement);
-                } else {
-                  const lastElement = document.getElementById('markdown-output').lastElementChild;
-                  if (lastElement && lastElement.tagName === 'DIV') {
-                    lastElement.textContent += ' ' + line.trim();
-                  } else {
-                    textElement.textContent = line.trim();
-                    document.getElementById('markdown-output').appendChild(textElement);
-                  }
-                }
-              }
-            }
-          });
-
-          currentBuffer = lastLine;
+          }
         }
       }
 
-      /* Do not modify the code below */
+      i++;
+    }
 
-      const markdownString = `# Hello World
+    buffer = buffer.slice(i);
+  }
+
+  function processLine(lineState) {
+    if (lineState.type === 'unknown') {
+      lineState.type = 'paragraph';
+      if (!lineState.element) {
+        lineState.element = document.createElement('div');
+        lineState.element.textContent = lineState.content;
+        document.getElementById('markdown-output').appendChild(lineState.element);
+      }
+    }
+
+    lineState.isLineComplete = true;
+    lineState.isAtLineStart = true;
+    lineState.potentialHeading = false;
+    lineState.potentialCodeBlock = false;
+    lineState.headingLevel = 0;
+    lineState.codeBlockDelimiter = '';
+    lineState.content = '';
+    lineState.isInInlineCode = false;
+    lineState.codeBlockEndDelimiter = '';
+  }
+
+  function renderInlineCode(text) {
+    return text.replace(/`([^`]+)`/g, function(match, code) {
+      return '<pre class="inline">' + code + '</pre>';
+    });
+  }
+
+  /* Ne modifiez pas le code ci-dessous */
+
+  const markdownString = `# Hello World
 
 Let's start with simple
 things.
@@ -130,18 +255,29 @@ const barfoo = 24
 \`\`\`
 `;
 
-      async function start() {
-        const rawMarkdown = document.getElementById("markdown");
+  async function start() {
+    const rawMarkdown = document.getElementById('markdown');
+    rawMarkdown.textContent = ''; // Réinitialiser le contenu
 
-        for (let i = 0; i < markdownString.length; ) {
-          const chunkSize = Math.floor(Math.random() * 5) + 1;
-          const chunk = markdownString.slice(i, i + chunkSize);
-          rawMarkdown.textContent += chunk;
-          renderMarkdown(chunk);
-          i += chunkSize;
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      }
-    </script>
-  </body>
+    // Réinitialiser les variables d'état globales
+    lines = [];
+    buffer = '';
+
+    // Vider le contenu précédent rendu
+    const markdownOutput = document.getElementById('markdown-output');
+    while (markdownOutput.firstChild) {
+      markdownOutput.removeChild(markdownOutput.firstChild);
+    }
+
+    for (let i = 0; i < markdownString.length; ) {
+      const chunkSize = Math.floor(Math.random() * 5) + 1;
+      const chunk = markdownString.slice(i, i + chunkSize);
+      rawMarkdown.textContent += chunk;
+      renderMarkdown(chunk);
+      i += chunkSize;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+</script>
+</body>
 </html>
